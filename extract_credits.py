@@ -16,8 +16,8 @@ class MovieCreditsExtractor:
         frames_to_skip: Optional[int] = 10,
         minutes_before_end: int = 15,
         gray_treshold: int = 20,
-        required_dark_frames: Optional[int] = None,
-        required_text_frames: Optional[int] = None,
+        required_dark_seconds: Optional[int] = None,
+        required_text_seconds: Optional[int] = None,
     ):
         """
         Initialize the MovieCreditsExtractor object with the input video path and other parameters.
@@ -27,16 +27,16 @@ class MovieCreditsExtractor:
         frames_to_skip (int): Number of frames to skip when detecting credits. Higher values will make the process faster but less accurate. Take into account when setting "required_dark_frames" and "required_text_frames" and "analysis_batch_seconds".
         minutes_before_end (int): Number of minutes before the end of the video to start the analysis.
         gray_treshold (int): Threshold value to determine if a frame is dark.
-        required_dark_frames (int): Number of consecutive frames (with frames_to_skip as an interval) with dark background to consider it as credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
-        required_text_frames (int): Number of consecutive frames (with frames_to_skip as an interval) with text to consider it as credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
+        required_dark_seconds (int): number of seconds (with frames_to_skip as an interval) with text to consider a batch of frames as including the credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
+        required_dark_seconds (int): number of seconds (with frames_to_skip as an interval) with dark frames to consider it as credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
         """
         self.input_path = input_path
         self.analysis_batch_seconds = analysis_batch_seconds
         self.frames_to_skip = frames_to_skip
         self.minutes_before_end = minutes_before_end
         self.gray_treshold = gray_treshold
-        self.required_dark_frames = required_dark_frames
-        self.required_text_frames = required_text_frames
+        self.required_dark_seconds = required_dark_seconds
+        self.required_text_seconds = required_text_seconds
         self.output_path = output_path
 
         self.cap = cv2.VideoCapture(input_path)
@@ -57,7 +57,7 @@ class MovieCreditsExtractor:
             Resolution: {self.width}x{self.height}
             FPS: {self.fps}
             Total Frames: {self.total_frames}
-            Duration Display: {duration_display}
+            Total Duration: {duration_display}
         """
         )
 
@@ -125,25 +125,39 @@ class MovieCreditsExtractor:
         Check if the number of dark frames and text frames meet the required criteria.
         """
         dark_frame_count = text_frame_count = 0
+        required_dark_frames = self.required_dark_seconds * self.fps if self.required_dark_seconds else None
+        required_text_frames = self.required_text_seconds * self.fps if self.required_text_seconds else None
         for frame_position, frame in enumerate(frames):
             if self.frames_to_skip and frame_position % self.frames_to_skip != 0:
                 # Skip frames to speed up processing
                 continue
-            if self.required_dark_frames is not None and self.frame_is_dark(frame):
+            if required_dark_frames is not None and self.frame_is_dark(frame):
                 dark_frame_count += 1
-            if self.required_text_frames is not None and self.frame_has_text(frame):
+                # if frame is dark, check if it has text
+                if required_text_frames is not None and self.frame_has_text(frame):
+                    text_frame_count += 1
+            
+            # if it doesn't require dark frames check, but requires text frames checks, then check for text frames
+            if (
+                required_dark_frames is None
+                and required_text_frames is not None
+                and self.frame_has_text(frame)
+            ):
                 text_frame_count += 1
 
-        respects_dark_frames = (
-            self.required_dark_frames is None
-            or dark_frame_count >= self.required_dark_frames
-        )
-        respects_text_frames = (
-            self.required_text_frames is None
-            or text_frame_count >= self.required_text_frames
-        )
+            # Check if the required dark frames and text frames are met
+            respects_dark_frames = (
+                required_dark_frames is None
+                or dark_frame_count >= required_dark_frames
+            )
+            respects_text_frames = (
+                required_text_frames is None
+                or text_frame_count >= required_text_frames
+            )
+            if respects_dark_frames and respects_text_frames:
+                return True
 
-        return respects_dark_frames and respects_text_frames
+        return False
 
     def extract_frames(
         self, start_frame: int, offset: Optional[int] = None
@@ -279,5 +293,3 @@ class MovieCreditsExtractor:
         out.release()
 
         print(f"\nCredit video saved to {self.output_path}")
-
-        
