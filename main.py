@@ -52,10 +52,10 @@ def detect_and_export_credits(movie_path: Union[str, pathlib.Path]):
         input_path=movie_path,
         output_path=output_path,
         frames_to_skip=10,  # number of frames to skip when detecting credits. Higher values will make the process faster but less accurate. Take into account when setting "required_dark_frames" and "required_text_frames" and "analysis_batch_seconds".
-        minutes_before_end=10,  # number of minutes before the end of the movie to start running the credits detection. This is to avoid analyzing the whole movie.
-        analysis_batch_seconds=30,  # Interval in seconds for each batch of frames that will be analysed for credits. Lower values will give a credits start time more accurate. It doesn't affect the running speed.
+        minutes_before_end=3,  # number of minutes before the end of the movie to start running the credits detection. This is to avoid analyzing the whole movie.
+        analysis_batch_seconds=30,  # Interval in seconds for each batch of frames that will be analysed for credits. Lower values will give a credits start time more accurate. If it's too large, the process can be slower - but not too much.
         required_text_frames=10,  # number of consecutive frames (with frames_to_skip as an interval) with text to consider it as credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
-        required_dark_frames=0,  # number of consecutive frames (with frames_to_skip as an interval) with dark frames to consider it as the end of the credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
+        required_dark_frames=None,  # number of consecutive frames (with frames_to_skip as an interval) with dark frames to consider it as the end of the credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
     )
     # get the start frame of the boundary of the credits
     start_frame = extractor.get_credits_start_frame()

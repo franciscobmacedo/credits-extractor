@@ -121,7 +121,8 @@ class MovieCreditsExtractor:
     ) -> bool:
         """
         Function to detect if a given set of frames have movie credits or not.
-        Replace with your actual logic for credits detection.
+        Count the number of dark frames and text frames in the given set of frames.
+        Check if the number of dark frames and text frames meet the required criteria.
         """
         dark_frame_count = text_frame_count = 0
         for frame_position, frame in enumerate(frames):
