@@ -20,7 +20,7 @@ This script extracts the credits from movies stored in a specified directory. It
 
 Edit the `main` function under `main.py`. You can:
 
-- choose to extract credits from a movie given a movie file path and the credits start time (if you already know the start time of the credits)
+- choose to extract credits from a movie given a video file path and the credits start time (if you already know the start time of the credits)
 - detect and extract all credits from movies stored under the `movies` directory (which you should create and populate)
 - detect and extract credits from a particular movie
 
@@ -33,7 +33,7 @@ python main.py
 The results will be under the `credits` directory with:
 
 - One video mp4 file for the credits
-- If you required the credit detection, the credit detection image boundaries (start and end) are also created. This means it's expected that the credits start in this interval.
+- If you required the credit detection, the credit detection image boundaries (start and end) are also created. This images represent the start and end frames where some credits were detected.
 
 
 
