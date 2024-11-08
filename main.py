@@ -1,5 +1,6 @@
 from typing import Union
-from extract_credits import MovieCreditsExtractor
+
+from extract_credits import MovieCreditsExtractor, CreditsNotFoundError
 import os
 import pathlib
 
@@ -21,15 +22,10 @@ def extract_credits(movie_path: Union[str, pathlib.Path], start_time: str):
     if isinstance(movie_path, str):
         movie_path = pathlib.Path(movie_path)
 
-    video_name = pathlib.Path(movie_path).stem
-
-    # set the output path for the credits video
-    output_path = pathlib.Path(OUTPUT_DIR) / f"{video_name}_credits.mp4"
-
     # create the MovieCreditsExtractor object
     extractor = MovieCreditsExtractor(
         input_path=movie_path,
-        output_path=str(output_path),
+        output_directory=OUTPUT_DIR,
     )
 
     # extract the credits
@@ -45,23 +41,27 @@ def detect_and_export_credits(movie_path: Union[str, pathlib.Path]):
     if isinstance(movie_path, str):
         movie_path = pathlib.Path(movie_path)
 
-    output_path = pathlib.Path(OUTPUT_DIR) / f"{movie_path.stem}_credits.mp4"
-
-    print(f"\nExtracting credits from {movie_path} to {output_path}")
+    print(f"\nExtracting credits from {movie_path}")
     extractor = MovieCreditsExtractor(
         input_path=movie_path,
-        output_path=output_path,
-        frames_to_skip=1,  # number of frames to skip when detecting credits. Higher values will make the process faster but less accurate. Take into account when setting "required_dark_frames" and "required_text_frames" and "analysis_batch_seconds".
-        minutes_before_end=5,  # number of minutes before the end of the movie to start running the credits detection. This is to avoid analyzing the whole movie.
-        analysis_batch_seconds=30,  # Interval in seconds for each batch of frames that will be analysed for credits. Lower values will give a credits start time more accurate. If it's too large, the process can be slower - but not too much.
-        required_text_seconds=10,  # number of seconds (with frames_to_skip as an interval) with text to consider a batch of frames as including the credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
-        required_dark_seconds=15,  # number of seconds (with frames_to_skip as an interval) with dark frames to consider a batch of frames as including the credits. This depends on the movie FPS, the "frames_to_skip" parameter and their relationship.
+        output_directory=OUTPUT_DIR,
     )
+    analysis_batch_seconds = 100
+    required_dark_seconds = 20
     # get the start frame of the boundary of the credits
-    start_frame = extractor.get_credits_start_frame()
-
+    start_frame = extractor.get_credits_start_frame(
+        frames_to_skip=1,  # number of frames to skip when detecting credits. Higher values will make the process faster but less accurate. Take into account when setting "required_dark_seconds" and "required_text_seconds" and "analysis_batch_seconds".
+        minutes_before_end=10,  # number of minutes before the end of the movie to start running the credits detection. This is to avoid analyzing the whole movie.
+        analysis_batch_seconds=analysis_batch_seconds,  # Interval in seconds for each batch of frames that will be analysed for credits. Lower values will give a credits start time more accurate, but also affect the granularity of required_dark_seconds and required_text_seconds.
+        required_dark_seconds=required_dark_seconds,  # number of seconds (with frames_to_skip as an interval) with dark frames to consider that a batch of frames has credits in it. This depends on the movie FPS, "frames_to_skip" and their relationship.
+        required_text_seconds=2,  # number of seconds with text (when there's a dark background) to consider that a batch of frames has credits in it. This depends on the movie FPS, "frames_to_skip", "required_dark_seconds"   parameter and their relationship.
+        gray_treshold=10,
+    )
     # export the credits video
-    extractor.export_credits_video(start_frame=start_frame)
+    extractor.export_credits_video(
+        start_frame=start_frame, 
+        initial_buffer_seconds=analysis_batch_seconds - required_dark_seconds # this is to avoid cutting the first seconds of the credits
+    )
 
 
 def detect_and_export_credits_for_all_movies():
@@ -71,7 +71,16 @@ def detect_and_export_credits_for_all_movies():
     Detects the start time of the credits in all movies in the movies directory and exports the credits to a new video file.
     """
     for movie in pathlib.Path(MOVIES_DIR).iterdir():
-        detect_and_export_credits(movie_path=movie)
+        try:
+            detect_and_export_credits(movie_path=movie)
+        except CreditsNotFoundError as e:
+            print(f"credits not found in movie {movie} (skiping this one): {e}")
+            continue
+        except Exception as e:
+            print(
+                f"Unknown error extracting credits from movie {movie} (skiping this one): {e}"
+            )
+            continue
 
 
 def main():
